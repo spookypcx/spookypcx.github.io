@@ -5,227 +5,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spooky's Blog</title>
     <link href="/css/override.css" rel="stylesheet" type="text/css">
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: 'Arial', sans-serif;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #000;
-            cursor: none;
-        }
-        canvas {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 0;
-        }
-        .content {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            padding: 20px;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 10px;
-            max-width: 800px;
-        }
-        h1 {
-            font-size: 3em;
-            margin-bottom: 0.5em;
-        }
-        p {
-            font-size: 1.2em;
-            line-height: 1.6;
-        }
-        .button {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
-        }
-        .button:hover {
-            background-color: #0056b3;
-        }
-        .custom-cursor {
-            width: 20px;
-            height: 20px;
-            border: 2px solid #fff;
-            border-radius: 50%;
-            position: fixed;
-            pointer-events: none;
-            transform: translate(-50%, -50%);
-            transition: transform 0.1s ease;
-            z-index: 9999;
-        }
-        a:hover ~ .custom-cursor, .button:hover ~ .custom-cursor {
-            transform: scale(1.5);
-            background-color: #fff;
-            mix-blend-mode: difference;
-        }
-    </style>
 </head>
 <body>
-    <canvas id="mountainCanvas"></canvas>
-    <div class="custom-cursor"></div>
 
-    <div class="content">
-        <h1>Spookys Blog</h1>
-        <p>A Blog about Reverse Engineering Games, Anticheats and other malwares through tools like IDA 9.0</p>
-        <p>Also Posts about methods and consitencies found in seprate games that contain high level encryption & cr3 shuffling</p>
-        <a href="/blog" class="button">Start Hacking!</a>
+    <div id="enter-overlay">
+        <div class="enter-text">Click to Enter</div>
     </div>
 
-    <audio id="background-music" src="/rotation.mp3" autoplay loop></audio>
+    <div class="custom-cursor"></div>
+
+    <div id="parallax-container">
+        <div class="parallax-layer" id="stars-bg"></div>
+        <div class="parallax-layer" id="mountains-bg"></div>
+        <div class="parallax-layer" id="trees-fg"></div>
+        <div class="title-container">
+            <h1>Spooky's Blog</h1>
+            <div class="scroll-indicator">↓</div>
+        </div>
+    </div>
+
+    <div id="content-section">
+        <div class="posts-wrapper">
+            <h2>Latest Posts</h2>
+            <ul class="post-list">
+                {% for post in site.posts %}
+                <li>
+                    <a href="{{ post.url | relative_url }}">
+                        <h3>{{ post.title | escape }}</h3>
+                        <p class="post-meta">{{ post.date | date: "%B %-d, %Y" }}</p>
+                        <p class="post-excerpt">{{ post.excerpt | strip_html | truncatewords: 30 }}</p>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <audio id="background-music" src="/rotation.mp3" loop></audio>
 
     <script>
-        const canvas = document.getElementById('mountainCanvas');
-        const gl = canvas.getContext('webgl');
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = document.getElementById('enter-overlay');
+            const audio = document.getElementById('background-music');
+            const cursor = document.querySelector('.custom-cursor');
 
-        if (!gl) {
-            alert('Your browser does not support WebGL. Please use a modern browser.');
-        }
+            // 1. Handle "Click to Enter"
+            overlay.addEventListener('click', () => {
+                overlay.style.opacity = '0';
+                overlay.style.pointerEvents = 'none';
+                audio.play().catch(error => console.log("Autoplay was prevented.", error));
+            }, { once: true });
 
-        const resizeCanvas = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            gl.viewport(0, 0, canvas.width, canvas.height);
-        };
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+            // 2. Handle Custom Cursor
+            document.addEventListener('mousemove', e => {
+                cursor.style.left = e.clientX + 'px';
+                cursor.style.top = e.clientY + 'px';
+            });
 
-        const vsSource = `
-            attribute vec4 aVertexPosition;
-            void main() {
-                gl_Position = aVertexPosition;
-            }
-        `;
-
-        const fsSource = `
-            precision highp float;
-            uniform vec2 uResolution;
-            uniform float uTime;
-            uniform vec3 uColor1;
-            uniform vec3 uColor2;
-            uniform vec3 uMountainColor;
-
-            float rand(vec2 n) {
-                return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
-            }
-
-            float noise(vec2 n) {
-                const vec2 d = vec2(0.0, 1.0);
-                vec2 b = floor(n), f = smoothstep(vec2(0.0), vec2(1.0), fract(n));
-                return mix(mix(rand(b), rand(b + d.yx), f.x), mix(rand(b + d.xy), rand(b + d.yy), f.x), f.y);
-            }
-
-            float fbm(vec2 n) {
-                float total = 0.0, amplitude = 1.0;
-                for (int i = 0; i < 4; i++) {
-                    total += noise(n) * amplitude;
-                    n *= 2.0;
-                    amplitude *= 0.5;
-                }
-                return total;
-            }
-
-            void main() {
-                vec2 uv = gl_FragCoord.xy / uResolution.xy;
-                uv.y = 1.0 - uv.y;
-
-                vec3 skyColor = mix(uColor1, uColor2, uv.y);
-                float mountainHeight = 0.4;
-                float mountainOffset = fbm(uv * 5.0 + vec2(uTime * 0.05, 0.0)) * 0.2 + 0.3;
-                mountainOffset += sin(uv.x * 15.0 + uTime * 0.1) * 0.03;
-                mountainOffset = max(mountainOffset, 0.35);
-
-                float treeLayer = fbm(uv * vec2(20.0, 10.0) + vec2(uTime * 0.07, 0.0));
-                float treeThreshold = 0.8;
-                float finalMountainShape = mountainOffset + treeLayer * 0.05;
-
-                if (uv.y < finalMountainShape) {
-                    gl_FragColor = vec4(uMountainColor, 1.0);
-                } else {
-                    gl_FragColor = vec4(skyColor, 1.0);
-                }
-            }
-        `;
-
-        function createShader(gl, type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
-                gl.deleteShader(shader);
-                return null;
-            }
-            return shader;
-        }
-
-        function createProgram(gl, vsSource, fsSource) {
-            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
-            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
-            const shaderProgram = gl.createProgram();
-            gl.attachShader(shaderProgram, vertexShader);
-            gl.attachShader(shaderProgram, fragmentShader);
-            gl.linkProgram(shaderProgram);
-            if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-                console.error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-                return null;
-            }
-            return shaderProgram;
-        }
-
-        const shaderProgram = createProgram(gl, vsSource, fsSource);
-        gl.useProgram(shaderProgram);
-
-        const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        const positions = [ -1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0 ];
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
-        const aVertexPosition = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
-        gl.vertexAttribPointer(aVertexPosition, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(aVertexPosition);
-
-        const uResolution = gl.getUniformLocation(shaderProgram, 'uResolution');
-        const uTime = gl.getUniformLocation(shaderProgram, 'uTime');
-        const uColor1 = gl.getUniformLocation(shaderProgram, 'uColor1');
-        const uColor2 = gl.getUniformLocation(shaderProgram, 'uColor2');
-        const uMountainColor = gl.getUniformLocation(shaderProgram, 'uMountainColor');
-        let startTime = Date.now();
-
-        function drawScene() {
-            const currentTime = (Date.now() - startTime) / 1000;
-            gl.clearColor(0.0, 0.0, 0.0, 1.0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-            gl.uniform2f(uResolution, canvas.width, canvas.height);
-            gl.uniform1f(uTime, currentTime);
-            const darkBlue = [0.05, 0.1, 0.2];
-            const purpleHorizon = [0.2, 0.1, 0.3];
-            const silhouetteColor = [0.01, 0.01, 0.02];
-            gl.uniform3fv(uColor1, new Float32Array(darkBlue));
-            gl.uniform3fv(uColor2, new Float32Array(purpleHorizon));
-            gl.uniform3fv(uMountainColor, new Float32Array(silhouetteColor));
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            requestAnimationFrame(drawScene);
-        }
-
-        drawScene();
-
-        const customCursor = document.querySelector('.custom-cursor');
-        document.addEventListener('mousemove', e => {
-            customCursor.setAttribute("style", "top: "+(e.pageY - 10)+"px; left: "+(e.pageX - 10)+"px;")
+            // 3. Handle Parallax Scrolling
+            const parallaxContainer = document.getElementById('parallax-container');
+            window.addEventListener('scroll', () => {
+                let offset = window.pageYOffset;
+                parallaxContainer.style.backgroundPositionY = offset * 0.7 + 'px';
+                document.getElementById('stars-bg').style.transform = `translateY(${offset * 0.3}px)`;
+                document.getElementById('mountains-bg').style.transform = `translateY(${offset * 0.5}px)`;
+                document.getElementById('trees-fg').style.transform = `translateY(${offset * 0.8}px)`;
+            });
         });
     </script>
 </body>
