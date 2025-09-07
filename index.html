@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,13 +9,18 @@
 </head>
 <body>
 
+    <div id="paper-texture-overlay"></div>
+
     <div id="enter-overlay">
-        <div class="enter-text">Click to Enter</div>
+        <div class="overlay-glitch"></div>
+        <div class="enter-text-container">
+            <div class="enter-text">> Initialize Sequence_</div>
+        </div>
     </div>
 
     <div class="custom-cursor"></div>
 
-    <div id="parallax-container">
+    <header id="parallax-container">
         <div class="parallax-layer" id="stars-bg"></div>
         <div class="parallax-layer" id="mountains-bg"></div>
         <div class="parallax-layer" id="trees-fg"></div>
@@ -22,15 +28,15 @@
             <h1>Spooky's Blog</h1>
             <div class="scroll-indicator">↓</div>
         </div>
-    </div>
+    </header>
 
-    <div id="content-section">
+    <main id="content-section">
         <div class="posts-wrapper">
             <h2>Latest Posts</h2>
             <ul class="post-list">
                 {% for post in site.posts %}
                 <li>
-                    <a href="{{ post.url | relative_url }}">
+                    <a class="post-card" href="{{ post.url | relative_url }}">
                         <h3>{{ post.title | escape }}</h3>
                         <p class="post-meta">{{ post.date | date: "%B %-d, %Y" }}</p>
                         <p class="post-excerpt">{{ post.excerpt | strip_html | truncatewords: 30 }}</p>
@@ -39,9 +45,17 @@
                 {% endfor %}
             </ul>
         </div>
-    </div>
+        
+        <div class="button-showcase">
+            <h2>Example Buttons</h2>
+            <button class="pm-button blue">Confirm</button>
+            <button class="pm-button green">Save Game</button>
+            <button class="pm-button red">Cancel</button>
+            <button class="pm-button yellow">Options</button>
+        </div>
+    </main>
 
-    <audio id="background-music" src="/rotation.mp3" loop></audio>
+    <audio id="background-music" src="/audio/rotation.mp3" loop></audio>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -49,27 +63,15 @@
             const audio = document.getElementById('background-music');
             const cursor = document.querySelector('.custom-cursor');
 
-            // 1. Handle "Click to Enter"
             overlay.addEventListener('click', () => {
                 overlay.style.opacity = '0';
-                overlay.style.pointerEvents = 'none';
-                audio.play().catch(error => console.log("Autoplay was prevented.", error));
+                setTimeout(() => overlay.style.display = 'none', 500);
+                audio.play().catch(error => console.log("Audio autoplay prevented by browser.", error));
             }, { once: true });
 
-            // 2. Handle Custom Cursor
             document.addEventListener('mousemove', e => {
                 cursor.style.left = e.clientX + 'px';
                 cursor.style.top = e.clientY + 'px';
-            });
-
-            // 3. Handle Parallax Scrolling
-            const parallaxContainer = document.getElementById('parallax-container');
-            window.addEventListener('scroll', () => {
-                let offset = window.pageYOffset;
-                parallaxContainer.style.backgroundPositionY = offset * 0.7 + 'px';
-                document.getElementById('stars-bg').style.transform = `translateY(${offset * 0.3}px)`;
-                document.getElementById('mountains-bg').style.transform = `translateY(${offset * 0.5}px)`;
-                document.getElementById('trees-fg').style.transform = `translateY(${offset * 0.8}px)`;
             });
         });
     </script>
